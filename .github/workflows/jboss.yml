@@ -171,7 +171,7 @@ jobs:
       - name: Build LaTeX PDF
         if: ${{ inputs.build_latex_pdf }}
         run: |
-          myst build --latex > build.log 2>&1 || true
+          myst build --pdf > build.log 2>&1 || true
                   
       - name: Upload Output LaTeX PDF as Artifact
         if: ${{ inputs.build_latex_pdf }}
