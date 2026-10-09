@@ -151,7 +151,7 @@ jobs:
           grep -iE "error|warning" build.log >> errorlog.md || echo "No errors or warnings." >> errorlog.md
           echo '```' >> errorlog.md
 
-#### ---- BUILD TYPST PDF ---- ####      
+#### ---- BUILD LATEX PDF ---- ####      
       - name: Install LaTeX
         if : ${{ inputs.build_latex_pdf }}
         run: |
@@ -180,6 +180,18 @@ jobs:
           name: Output LaTeX PDF
           path: exports/*.pdf
           compression-level: 0
+
+      - name: Write build errors to errorlog.md
+        if: ${{ inputs.build_latex_pdf }}
+        run: |
+          echo "# PDF Build Error Log" > errorlog.md
+          echo "" >> errorlog.md
+          echo "**Build time:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> errorlog.md
+          echo "" >> errorlog.md
+          echo '```text' >> errorlog.md
+          grep -iE "error|warning" build.log >> errorlog.md || echo "No errors or warnings." >> errorlog.md
+          echo '```' >> errorlog.md
+
 
 ##### ---- BUILD HTML ---- ####          
       - name: Build HTML Assets with Python execution
