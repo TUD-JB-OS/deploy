@@ -36,6 +36,9 @@ on:
         required: false
         type: boolean
         default: false
+
+
+
 env:
   BASE_URL: /${{ github.event.repository.name }}
 
@@ -82,6 +85,10 @@ jobs:
 
       - name: Install ImageMagick
         run: sudo apt-get update && sudo apt-get install -y imagemagick
+
+      - name: Warn when both PDF builds are requested
+        if: ${{ inputs.build_latex_pdf && inputs.build_typst_pdf }}
+        run: echo "only one pdf build allowed"
 
 
 
@@ -153,7 +160,7 @@ jobs:
 
 #### ---- BUILD LATEX PDF ---- ####      
       - name: Install LaTeX
-        if : ${{ inputs.build_latex_pdf }}
+        if: ${{ inputs.build_latex_pdf && !inputs.build_typst_pdf }}
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -169,12 +176,12 @@ jobs:
             npm
 
       - name: Build LaTeX PDF
-        if: ${{ inputs.build_latex_pdf }}
+        if: ${{ inputs.build_latex_pdf && !inputs.build_typst_pdf }}
         run: |
           myst build --pdf > build.log 2>&1 || true
                   
       - name: Upload Output LaTeX PDF as Artifact
-        if: ${{ inputs.build_latex_pdf }}
+        if: ${{ inputs.build_latex_pdf && !inputs.build_typst_pdf }}
         uses: actions/upload-artifact@v4
         with:
           name: Output LaTeX PDF
@@ -182,7 +189,7 @@ jobs:
           compression-level: 0
 
       - name: Write build errors to errorlog.md
-        if: ${{ inputs.build_latex_pdf }}
+        if: ${{ inputs.build_latex_pdf && !inputs.build_typst_pdf }}
         run: |
           echo "# PDF Build Error Log" > errorlog.md
           echo "" >> errorlog.md
