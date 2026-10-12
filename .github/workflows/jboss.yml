@@ -10,7 +10,7 @@ on:
         description: "Build Typst PDF"
         required: false
         type: boolean
-        default: false
+        default: true
       build_latex_pdf:
         description: "Build LaTeX PDF"
         required: false
@@ -137,7 +137,8 @@ jobs:
       - name: Build PDF
         if: ${{ inputs.build_typst_pdf }}
         run: |
-          myst build --typst > build.log 2>&1 || true
+          myst build --typst 
+      # > build.log 2>&1 || true
                   
       - name: Upload Output PDF as Artifact
         if: ${{ inputs.build_typst_pdf }}
