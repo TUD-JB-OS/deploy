@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: website-production
+  group: website-production-${{ github.repository }}
   cancel-in-progress: false
 
 jobs:
@@ -46,7 +46,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y rsync openssh-client
           python -m pip install --upgrade pip
-          pip install mystmd
+          npm install -g mystmd
 
       - name: Configure SSH
         env:
