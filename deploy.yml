@@ -2,17 +2,14 @@
 name: Deploy
 
 on:
-  # push:
-    # branches: [main]
+  push:
+    branches: [main]
       
 permissions:
   contents: read
   pages: write
   id-token: write
   
-
-
-
 jobs:
   deploy:
     uses: TUD-JB-OS/deploy/.github/workflows/jboss.yml@main
@@ -22,4 +19,4 @@ jobs:
       execute_python: false
       run_nb_checks: false
       run_fig_checks: false
-      run_code_checks: false
+      dep_manager: pixi 

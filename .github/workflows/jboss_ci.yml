@@ -1,0 +1,287 @@
+# Build pages with Python execute
+
+
+name: JBOSS Buildscript with menu
+
+on:
+  workflow_call:
+    inputs:
+      dependency_manager:
+        description: "Dependency manager: pip, uv or pixi"
+        required: false
+        type: string
+        default: pixi
+      build_typst_pdf:
+        description: "Build Typst PDF"
+        required: false
+        type: boolean
+        default: true
+      build_latex_pdf:
+        description: "Build LaTeX PDF"
+        required: false
+        type: boolean
+        default: false
+      execute_python: 
+        description: "Execute Python code"
+        required: false
+        type: boolean
+        default: false
+      run_nb_checks: 
+        description: "Run notebook checks"
+        required: false
+        type: boolean
+        default: false
+      run_fig_checks: 
+        description: "Run figure checks"
+        required: false
+        type: boolean
+        default: false
+
+
+
+
+env:
+  BASE_URL: /${{ github.event.repository.name }}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    runs-on: ubuntu-latest
+
+    env:
+      TYPST_FONT_PATHS: ${{ github.workspace }}/typst_template/src/assets/fonts
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Checkout JB workflows
+        uses: actions/checkout@v5
+        with:
+            repository: FreekPols/JB-workflows
+            path: .jb-workflows
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Install MyST
+        run: npm install -g mystmd
+
+      - name: Install ImageMagick
+        run: sudo apt-get update && sudo apt-get install -y imagemagick
+
+      - name: Warn when both PDF builds are requested
+        if: ${{ inputs.build_latex_pdf && inputs.build_typst_pdf }}
+        run: echo "only one pdf build allowed"
+
+
+
+
+
+
+
+##### ---- SETUP PYTHON ---- ####
+      - name: Validate dependency manager
+        env:
+          DEPENDENCY_MANAGER: ${{ inputs.dependency_manager }}
+        run: |
+          case "$DEPENDENCY_MANAGER" in
+            pip|uv|pixi) ;;
+            *) echo "Unsupported dependency manager: $DEPENDENCY_MANAGER" >&2; exit 1 ;;
+          esac
+
+      - name: Set up Python (pip / uv)
+        if: ${{ inputs.dependency_manager != 'pixi' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up uv
+        if: ${{ inputs.dependency_manager == 'uv' }}
+        uses: astral-sh/setup-uv@v6
+
+      - name: Set up Pixi
+        if: ${{ inputs.dependency_manager == 'pixi' }}
+        uses: prefix-dev/setup-pixi@v0.9.1
+        with:
+          run-install: false
+
+      - name: Install CI dependencies (pip)
+        if: ${{ inputs.dependency_manager == 'pip' }}
+        run: |
+          test -f requirements-ci.txt || { echo 'Missing requirements-ci.txt'; exit 1; }
+          python -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install -r requirements-ci.txt
+          echo "${{ github.workspace }}/.venv/bin" >> "$GITHUB_PATH"
+
+      - name: Install CI dependencies (uv)
+        if: ${{ inputs.dependency_manager == 'uv' }}
+        run: |
+          test -f pyproject.toml || { echo 'Missing pyproject.toml'; exit 1; }
+          test -f uv.lock || { echo 'Missing uv.lock (run uv lock and commit it)'; exit 1; }
+          uv sync --locked --no-default-groups --group ci
+          echo "${{ github.workspace }}/.venv/bin" >> "$GITHUB_PATH"
+
+      - name: Install CI dependencies (Pixi)
+        if: ${{ inputs.dependency_manager == 'pixi' }}
+        run: |
+          test -f pixi.toml || { echo 'Missing pixi.toml'; exit 1; }
+          pixi install --environment ci
+
+      # MyST invokes Jupyter kernels by name. Register the selected interpreter
+      # as python3 so notebook execution uses the same CI dependencies.
+      - name: Register Python kernel (pip / uv)
+        if: ${{ inputs.dependency_manager != 'pixi' }}
+        run: .venv/bin/python -m ipykernel install --user --name python3 --display-name 'Python 3 (CI)'
+
+      - name: Register Python kernel (Pixi)
+        if: ${{ inputs.dependency_manager == 'pixi' }}
+        run: pixi run --environment ci python -m ipykernel install --user --name python3 --display-name 'Python 3 (CI)'
+
+      - name: Automated file checks
+        if: ${{ inputs.run_nb_checks }}
+        run: |
+          if [ "${{ inputs.dependency_manager }}" = pixi ]; then
+            pixi run --environment ci python .jb-workflows/scripts/check.py
+          else
+            .venv/bin/python .jb-workflows/scripts/check.py
+          fi
+
+
+
+#### ---- BUILD TYPST PDF ---- ####      
+      - name: Checkout Typst template fonts
+        if: ${{ inputs.build_typst_pdf }}
+        uses: actions/checkout@v5
+        with:
+          repository: TUD-JB-OS/typst_template
+          ref: main
+          path: typst_template
+
+      - name: Setup Typst
+        if: ${{ inputs.build_typst_pdf }}
+        uses: typst-community/setup-typst@v4
+
+      - name: Build PDF
+        if: ${{ inputs.build_typst_pdf }}
+        run: |
+          myst build --typst 
+      # > build.log 2>&1 || true
+                  
+      - name: Upload Output PDF as Artifact
+        if: ${{ inputs.build_typst_pdf }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Output PDF
+          path: exports/*.pdf
+          compression-level: 0
+
+      - name: Write build errors to errorlog.md
+        if: ${{ inputs.build_typst_pdf }}
+        run: |
+          echo "# PDF Build Error Log" > errorlog.md
+          echo "" >> errorlog.md
+          echo "**Build time:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> errorlog.md
+          echo "" >> errorlog.md
+          echo '```text' >> errorlog.md
+          grep -iE "error|warning" build.log >> errorlog.md || echo "No errors or warnings." >> errorlog.md
+          echo '```' >> errorlog.md
+
+#### ---- BUILD LATEX PDF ---- ####      
+      - name: Install LaTeX
+        if: ${{ inputs.build_latex_pdf && !inputs.build_typst_pdf }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            imagemagick \
+            texlive-latex-base \
+            texlive-latex-recommended \
+            texlive-fonts-recommended \
+            texlive-xetex \
+            latexmk \
+            texlive-latex-extra \
+            fonts-lmodern \
+            nodejs \
+            npm
+
+      - name: Build LaTeX PDF
+        if: ${{ inputs.build_latex_pdf && !inputs.build_typst_pdf }}
+        run: |
+          myst build --pdf > build.log 2>&1 || true
+                  
+      - name: Upload Output LaTeX PDF as Artifact
+        if: ${{ inputs.build_latex_pdf && !inputs.build_typst_pdf }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Output LaTeX PDF
+          path: exports/*.pdf
+          compression-level: 0
+
+      - name: Write build errors to errorlog.md
+        if: ${{ inputs.build_latex_pdf && !inputs.build_typst_pdf }}
+        run: |
+          echo "# PDF Build Error Log" > errorlog.md
+          echo "" >> errorlog.md
+          echo "**Build time:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> errorlog.md
+          echo "" >> errorlog.md
+          echo '```text' >> errorlog.md
+          grep -iE "error|warning" build.log >> errorlog.md || echo "No errors or warnings." >> errorlog.md
+          echo '```' >> errorlog.md
+
+
+##### ---- BUILD HTML ---- ####          
+      - name: Build HTML Assets with Python execution
+        if: ${{ inputs.execute_python }}
+        run: myst build --html --execute 2>&1 | tee build.log
+
+      - name: Build HTML Assets without Python execution
+        if: ${{ !inputs.execute_python }}
+        run: myst build --html  2>&1 | tee build.log
+
+      - name: Generate MyST error report
+        run: |
+          if [ "${{ inputs.dependency_manager }}" = pixi ]; then
+            pixi run --environment ci python .jb-workflows/scripts/errorlog.py
+          else
+            .venv/bin/python .jb-workflows/scripts/errorlog.py
+          fi
+
+#### ---- ADD CHECK REPORT ---- ####
+
+
+      - name: Automated figure checks
+        if: ${{ inputs.run_fig_checks }}
+        run: |
+          if [ "${{ inputs.dependency_manager }}" = pixi ]; then
+            pixi run --environment ci python .jb-workflows/scripts/listoffigs.py
+          else
+            .venv/bin/python .jb-workflows/scripts/listoffigs.py
+          fi
+
+#### ---- DEPLOY TO GITHUB PAGES ---- ####        
+      - name: Upload HTML artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: ./_build/html
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
