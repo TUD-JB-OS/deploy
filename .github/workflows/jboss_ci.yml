@@ -144,7 +144,7 @@ jobs:
         if: ${{ inputs.dependency_manager == 'pixi' }}
         run: |
           test -f pixi.toml || { echo 'Missing pixi.toml'; exit 1; }
-          pixi install --environment ci
+          pixi install
 
       # MyST invokes Jupyter kernels by name. Register the selected interpreter
       # as python3 so notebook execution uses the same CI dependencies.

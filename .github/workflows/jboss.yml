@@ -144,7 +144,7 @@ jobs:
 
       - name: Install Pixi dependencies
         if: ${{ inputs.dependency_manager == 'pixi' }}
-        run: pixi install --environment ci
+        run: pixi install 
 
 
 ##### ----- RUN CHECKS ---- ####          
