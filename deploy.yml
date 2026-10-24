@@ -19,4 +19,4 @@ jobs:
       execute_python: false
       run_nb_checks: false
       run_fig_checks: false
-      dep_manager: pixi 
+      dependency_manager: pixi 

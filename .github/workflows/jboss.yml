@@ -6,7 +6,7 @@ name: JBOSS Buildscript with menu
 on:
   workflow_call:
     inputs:
-      dep_manager:
+      dependency_manager:
         description: "Dependency manager: pip, uv, or pixi"
         required: false
         type: string
