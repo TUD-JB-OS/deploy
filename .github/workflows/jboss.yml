@@ -65,16 +65,16 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Checkout JB workflows
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
             repository: FreekPols/JB-workflows
             path: .jb-workflows
 
       - name: Setup Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Setup Node
         uses: actions/setup-node@v5
@@ -102,9 +102,9 @@ jobs:
 ##### ---- SETUP PYTHON ---- ####
       - name: Set up Python
         if: ${{ inputs.build_typst_pdf || inputs.build_latex_pdf || inputs.execute_python || inputs.run_nb_checks || inputs.run_fig_checks }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: '3.11'   # or your version
+          python-version: '3.14.10'   # or your version
 
       - name: Validate dependency manager
         env:
@@ -156,7 +156,7 @@ jobs:
 #### ---- BUILD TYPST PDF ---- ####      
       - name: Checkout Typst template fonts
         if: ${{ inputs.build_typst_pdf }}
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           repository: TUD-JB-OS/typst_template
           ref: main

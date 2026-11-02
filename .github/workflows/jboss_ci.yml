@@ -111,7 +111,7 @@ jobs:
         if: ${{ inputs.dependency_manager != 'pixi' }}
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.14.10'
 
       - name: Set up uv
         if: ${{ inputs.dependency_manager == 'uv' }}
